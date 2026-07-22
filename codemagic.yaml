@@ -1,0 +1,90 @@
+workflows:
+  android-workflow:
+    name: Android
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      groups:
+        - delivery_habits_secrets # set up in Codemagic UI: Teams > your team > Environment variables
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Generate dart_define.json from Codemagic secrets
+        script: |
+          cat > dart_define.json <<EOF
+          {
+            "SUPABASE_URL": "$SUPABASE_URL",
+            "SUPABASE_PUBLISHABLE_KEY": "$SUPABASE_PUBLISHABLE_KEY",
+            "PLAID_PUBLIC_KEY": "$PLAID_PUBLIC_KEY",
+            "PLAID_ENV": "$PLAID_ENV",
+            "GOOGLE_SIGN_IN_SERVER_CLIENT_ID": "$GOOGLE_SIGN_IN_SERVER_CLIENT_ID"
+          }
+          EOF
+      - name: Build Android App Bundle
+        script: |
+          flutter build appbundle --release \
+            --dart-define-from-file=dart_define.json
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - user@example.com # replace with your email
+
+  ios-workflow:
+    name: iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic_api_key # name this exactly when you add the key in Codemagic UI
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - delivery_habits_secrets
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.deliveryhabits.deliveryHabits
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Generate dart_define.json from Codemagic secrets
+        script: |
+          cat > dart_define.json <<EOF
+          {
+            "SUPABASE_URL": "$SUPABASE_URL",
+            "SUPABASE_PUBLISHABLE_KEY": "$SUPABASE_PUBLISHABLE_KEY",
+            "PLAID_PUBLIC_KEY": "$PLAID_PUBLIC_KEY",
+            "PLAID_ENV": "$PLAID_ENV",
+            "GOOGLE_SIGN_IN_SERVER_CLIENT_ID": "$GOOGLE_SIGN_IN_SERVER_CLIENT_ID"
+          }
+          EOF
+      - name: Set up code signing (Codemagic-managed certificates)
+        script: xcode-project use-profiles
+      - name: Build ipa
+        script: |
+          flutter build ipa --release \
+            --dart-define-from-file=dart_define.json \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Flip to true once you've done at least one manual App Store Connect
+        # review pass and want every push to main to reach external testers.
+        beta_groups: []
+
+# Builds are manual-trigger by default to conserve free-tier minutes (per
+# SETUP.md). Uncomment to auto-build on push to main once you're ready:
+# triggering:
+#   events:
+#     - push
+#   branch_patterns:
+#     - pattern: main
+#       include: true

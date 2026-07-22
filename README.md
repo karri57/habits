@@ -1,17 +1,16 @@
-# delivery_habits
+# Delivery Habits
 
-A new Flutter project.
+A budgeting and habit-tracking app for food delivery spending — set a monthly budget, track
+orders against it, and see your saved/overspent total for every day on a calendar.
 
-## Getting Started
+Flutter + Supabase (Postgres, Auth, Edge Functions) + Plaid + Riverpod. See [SETUP.md](SETUP.md)
+for how to wire up real Supabase/Plaid/OAuth credentials and the Codemagic iOS pipeline — the app
+runs out of the box against placeholder config with an empty/local-only backend.
 
-This project is a starting point for a Flutter application.
+## Local dev
 
-A few resources to get you started if this is your first Flutter project:
+```
+flutter run --dart-define-from-file=dart_define.json -d <device-id>
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+`flutter devices` lists available targets.

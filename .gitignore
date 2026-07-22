@@ -47,5 +47,8 @@ app.*.map.json
 # Secrets — never commit real API keys
 dart_define.json
 .env
+
+# Supabase CLI local state (project ref, pooler URL, cached versions)
+supabase/.temp/
 ios/Runner/GoogleService-Info.plist
 android/app/google-services.json
