@@ -24,6 +24,7 @@ workflows:
       - name: Build Android App Bundle
         script: |
           flutter build appbundle --release \
+            --build-number=$BUILD_NUMBER \
             --dart-define-from-file=dart_define.json
     artifacts:
       - build/**/outputs/**/*.aab
@@ -67,6 +68,7 @@ workflows:
       - name: Build ipa
         script: |
           flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
             --dart-define-from-file=dart_define.json \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
