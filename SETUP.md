@@ -70,10 +70,15 @@ is already checked in with Android + iOS workflows; here's what you need to do o
 4. **Apple Developer account** ($99/yr, developer.apple.com/programs) — required for code signing
    and TestFlight.
 5. **Connect code signing.** In App Store Connect → Users and Access → Integrations → App Store
-   Connect API, generate a key, then in Codemagic → Teams → Integrations → Apple Developer Portal,
-   add it and name the integration `codemagic_api_key` (must match `codemagic.yaml`'s
-   `app_store_connect: codemagic_api_key` reference). Codemagic then manages certificates and
-   provisioning profiles automatically — no manual `.p12`/`.mobileprovision` handling.
+   Connect API, generate a key with the **Admin** role (App Manager isn't enough — automatic
+   certificate/profile creation needs Admin). In Codemagic → Team settings → Integrations → Apple
+   Developer Portal, add it — whatever name you give the integration must match `codemagic.yaml`'s
+   `app_store_connect:` value under `ios-workflow.integrations` exactly (this project's integration
+   ended up named `codemagic`, which is what the yaml currently references). In practice, Codemagic
+   may not auto-create the certificate/provisioning profile on the first build — if you hit "No
+   matching profiles found", generate them once manually via Settings → Code signing identities →
+   iOS certificates (Generate certificate, type App Store) and iOS provisioning profiles (Fetch
+   profiles, or create one at developer.apple.com/account/resources/profiles and fetch again).
 6. **Register the app in App Store Connect** with bundle ID `com.deliveryhabits.deliveryHabits`
    (matches `ios_signing.bundle_identifier` in `codemagic.yaml`) so TestFlight has somewhere to
    publish to.
