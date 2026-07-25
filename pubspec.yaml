@@ -45,6 +45,7 @@ dependencies:
   sign_in_with_apple: ^8.1.0
   intl: ^0.20.3
   plaid_flutter: ^5.2.0
+  in_app_purchase: ^3.3.0
 
 dev_dependencies:
   flutter_test:

@@ -26,6 +26,13 @@ class SupabaseService {
     return row == null ? null : UserProfile.fromMap(row);
   }
 
+  Future<void> setProStatus({required bool isPro, DateTime? expiresAt}) async {
+    await _client.from('users').update({
+      'is_pro': isPro,
+      'pro_expires_at': expiresAt?.toIso8601String(),
+    }).eq('id', _uid);
+  }
+
   // --- accounts ----------------------------------------------------------
 
   Future<List<Account>> fetchAccounts() async {

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/accounts_provider.dart';
+import '../../providers/purchase_provider.dart';
 import '../../theme/app_colors.dart';
+import '../paywall/paywall_screen.dart';
 
 /// "+ Add an account" button with a dashed border, launching Plaid Link.
 class LinkAccountButton extends ConsumerStatefulWidget {
@@ -16,6 +18,14 @@ class _LinkAccountButtonState extends ConsumerState<LinkAccountButton> {
   bool _connecting = false;
 
   Future<void> _launch() async {
+    if (!ref.read(isProProvider)) {
+      final upgraded = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      if (upgraded != true) return;
+      ref.invalidate(purchaseProductsProvider);
+    }
+
     setState(() => _connecting = true);
     try {
       await ref.read(plaidServiceProvider).openLink(
@@ -51,6 +61,7 @@ class _LinkAccountButtonState extends ConsumerState<LinkAccountButton> {
 
   @override
   Widget build(BuildContext context) {
+    final isPro = ref.watch(isProProvider);
     return CustomPaint(
       painter: _DashedBorderPainter(color: AppColors.border),
       child: Material(
@@ -67,12 +78,30 @@ class _LinkAccountButtonState extends ConsumerState<LinkAccountButton> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Row(
+                  : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add, color: AppColors.accentBlue),
-                        SizedBox(width: 8),
-                        Text('Add an account', style: TextStyle(color: AppColors.accentBlue)),
+                        const Icon(Icons.add, color: AppColors.accentBlue),
+                        const SizedBox(width: 8),
+                        const Text('Add an account', style: TextStyle(color: AppColors.accentBlue)),
+                        if (!isPro) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentBlue.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'PRO',
+                              style: TextStyle(
+                                color: AppColors.accentBlue,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
             ),

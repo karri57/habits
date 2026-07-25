@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'has_seen_welcome': true});
     await Supabase.initialize(
       url: 'https://placeholder.supabase.co',
       publishableKey: 'placeholder-publishable-key',
@@ -15,7 +15,7 @@ void main() {
 
   testWidgets('shows the auth screen when signed out', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: DeliveryHabitsApp()));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Delivery Habits'), findsOneWidget);
     expect(find.text('Welcome back'), findsOneWidget);

@@ -27,6 +27,37 @@ files for the OAuth providers.
 3. Put the Plaid **public** key (used to init Plaid Link) into `dart_define.json` as
    `PLAID_PUBLIC_KEY`, and set `PLAID_ENV` to `sandbox` / `development` / `production`.
 
+## Delivery Habits PRO (subscription / In-App Purchase)
+
+Manual budget tracking is free forever; Plaid bank sync is gated behind a Pro subscription
+(`lib/screens/accounts/link_account_button.dart` checks `isProProvider` before launching Plaid
+Link). The paywall UI and purchase plumbing (`in_app_purchase` package) are code-complete, but the
+actual subscription products need to exist in App Store Connect (and later Google Play Console)
+before purchases will work.
+
+1. **Enable In-App Purchase capability.** On the App ID
+   (developer.apple.com/account/resources/identifiers → `com.deliveryhabits.deliveryHabits`),
+   check **In-App Purchase** if it isn't already implicitly enabled, and save.
+2. **Create a subscription group** in App Store Connect → your app → Monetization → Subscriptions
+   → **+** next to Subscription Groups. Name it e.g. "Delivery Habits Pro".
+3. **Create three subscription products** inside that group, with these **exact** Product IDs
+   (must match `lib/services/purchase_products.dart`):
+   - `com.deliveryhabits.deliveryHabits.pro.monthly` — Duration: 1 Month — price: $3.99
+   - `com.deliveryhabits.deliveryHabits.pro.yearly` — Duration: 1 Year — price: $23.88
+     (displays as $1.99/mo)
+   - `com.deliveryhabits.deliveryHabits.pro.yearly.offer` — Duration: 1 Year — price: $11.99
+     (the "hold up... this is a limited offer" retention-screen price, ~$1.00/mo)
+   For each, add a localization (display name + description) and, if you want the "activate free
+   trial" / "try free for 7 days" copy to be real rather than just UI copy, add a 7-day
+   Introductory Offer (free trial) under that product's Subscription Prices.
+4. Submit the subscriptions for review along with your next app build (subscriptions can't go live
+   independently — Apple reviews them together with a build that uses them).
+5. **Android**: same product IDs, created later in Google Play Console → Monetize → Subscriptions,
+   once you set up a Play Console listing (not done yet — this session focused on iOS/TestFlight).
+
+Purchases are trusted client-side for v1 (no server-side receipt verification) — see the doc
+comment on `PurchaseService` for what to add before this matters for real revenue.
+
 ## Google Sign-In
 
 1. In Google Cloud Console, create OAuth client IDs: one "Web application" client (used as the
