@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../providers/auth_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/notification_provider.dart';
 import 'accounts/accounts_screen.dart';
@@ -18,11 +17,11 @@ class _TabSpec {
 }
 
 const _tabs = [
-  _TabSpec('Home', Icons.home_outlined),
-  _TabSpec('Spending', Icons.bar_chart_outlined),
-  _TabSpec('Accounts', Icons.account_balance_outlined),
-  _TabSpec('Transactions', Icons.receipt_long_outlined),
-  _TabSpec('Budget', Icons.pie_chart_outline),
+  _TabSpec('Overview', Icons.bar_chart_rounded),
+  _TabSpec('Orders', Icons.receipt_long_outlined),
+  _TabSpec('Insights', Icons.show_chart_rounded),
+  _TabSpec('Goals', Icons.shield_outlined),
+  _TabSpec('More', Icons.grid_view_outlined),
 ];
 
 /// Persists the selected tab across app launches (see [_prefsKey]).
@@ -82,13 +81,6 @@ class _RootShellState extends ConsumerState<RootShell> with SingleTickerProvider
     return Scaffold(
       appBar: AppBar(
         title: const Text('Delivery Habits'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-            onPressed: () => ref.read(authServiceProvider).signOut(),
-          ),
-        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -100,10 +92,10 @@ class _RootShellState extends ConsumerState<RootShell> with SingleTickerProvider
         controller: _tabController,
         children: const [
           HomeScreen(),
-          SpendingScreen(),
-          AccountsScreen(),
           TransactionsScreen(),
+          SpendingScreen(),
           BudgetScreen(),
+          AccountsScreen(),
         ],
       ),
     );

@@ -1,8 +1,11 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 
-import '../../models/daily_summary.dart';
+import '../../models/budget.dart';
+import '../../models/platform.dart';
+import '../../models/transaction.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/navigation_provider.dart';
@@ -10,172 +13,219 @@ import '../../providers/profile_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_card.dart';
-import 'day_detail_sheet.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late DateTime _focusedMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _focusedMonth = DateTime(now.year, now.month);
-  }
-
-  DateTime get _previousMonth => DateTime(_focusedMonth.year, _focusedMonth.month - 1);
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(userProfileProvider);
+    final ordersAsync = ref.watch(currentMonthOrdersProvider);
     final budgetAsync = ref.watch(budgetProvider);
-    final currentSummaryAsync = ref.watch(monthSummaryProvider(_focusedMonth));
-    final previousSummaryAsync = ref.watch(monthSummaryProvider(_previousMonth));
+    final now = DateTime.now();
+    final monthSummaryAsync = ref.watch(monthSummaryProvider(DateTime(now.year, now.month)));
+    final prevMonthSummaryAsync =
+        ref.watch(monthSummaryProvider(DateTime(now.year, now.month - 1)));
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(monthSummaryProvider(_focusedMonth));
-        ref.invalidate(monthSummaryProvider(_previousMonth));
+        ref.invalidate(currentMonthOrdersProvider);
+        ref.invalidate(monthSummaryProvider(DateTime(now.year, now.month)));
       },
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            '${timeOfDayGreeting(DateTime.now())}, '
-            '${profileAsync.value?.firstName ?? 'there'}',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          if (budgetAsync.hasValue && budgetAsync.value == null) ...[
-            const SizedBox(height: 16),
-            AppCard(
-              onTap: () => ref.read(selectedTabIndexProvider.notifier).state = 4,
-              child: const Row(
-                children: [
-                  Icon(Icons.pie_chart_outline, color: AppColors.accentBlue),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Set up your monthly delivery budget to start tracking savings',
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: AppColors.textMuted),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _SummaryCard(
-                  label: 'Saved this month',
-                  value: currentSummaryAsync.value?.totalSaved ?? 0,
-                  previousValue: previousSummaryAsync.value?.totalSaved ?? 0,
-                  positiveIsGood: true,
-                  loading: currentSummaryAsync.isLoading,
-                ),
+              Text(
+                'Hello, ${profileAsync.value?.firstName ?? 'there'} 👋',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SummaryCard(
-                  label: 'Spent on delivery',
-                  value: currentSummaryAsync.value?.totalSpent ?? 0,
-                  previousValue: previousSummaryAsync.value?.totalSpent ?? 0,
-                  positiveIsGood: false,
-                  overBudget: budgetAsync.value != null &&
-                      (currentSummaryAsync.value?.totalSpent ?? 0) >
-                          budgetAsync.value!.monthlyBudgetAmount,
-                  loading: currentSummaryAsync.isLoading,
+              IconButton(
+                icon: const Icon(Icons.notifications_none_rounded),
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No new notifications')),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          AppCard(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: currentSummaryAsync.when(
-              data: (summary) => _CalendarSection(
-                focusedMonth: _focusedMonth,
-                byDay: summary.byDay,
-                onMonthChanged: (month) => setState(
-                  () => _focusedMonth = DateTime(month.year, month.month),
-                ),
-                onDayTapped: (day) => showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => DayDetailSheet(day: day),
-                ),
-              ),
-              loading: () => const SizedBox(
-                height: 360,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (err, _) => SizedBox(
-                height: 360,
-                child: Center(child: Text('Couldn\'t load calendar: $err')),
-              ),
+          ordersAsync.when(
+            data: (orders) {
+              final totalSpent = orders.fold(0.0, (sum, o) => sum + o.amount);
+              final byPlatform = <DeliveryPlatform, double>{};
+              for (final o in orders) {
+                final p = o.platform ?? DeliveryPlatform.other;
+                byPlatform[p] = (byPlatform[p] ?? 0) + o.amount;
+              }
+              final topEntry = byPlatform.entries.isEmpty
+                  ? null
+                  : byPlatform.entries.reduce((a, b) => a.value > b.value ? a : b);
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  const Text(
+                    "This month you've spent",
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatCurrency(totalSpent),
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Across ${orders.length} order${orders.length == 1 ? '' : 's'}',
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+                  if (topEntry != null)
+                    AppCard(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Top service', style: TextStyle(color: AppColors.textSecondary)),
+                                const SizedBox(height: 6),
+                                Text(
+                                  topEntry.key.label,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  formatCurrency(topEntry.value),
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  '${(topEntry.value / totalSpent * 100).toStringAsFixed(0)}% of spend',
+                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            height: 84,
+                            width: 84,
+                            child: _ServiceDonut(byPlatform: byPlatform, total: totalSpent),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                          child: Text('Recent orders', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        if (orders.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text(
+                              'No orders yet this month.',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          )
+                        else
+                          for (final order in orders.take(3)) _OrderRow(order: order),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.only(top: 60),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (err, _) => Padding(
+              padding: const EdgeInsets.only(top: 40),
+              child: Text('Couldn\'t load orders: $err'),
             ),
           ),
+          const SizedBox(height: 16),
+          budgetAsync.when(
+            data: (budget) => budget == null
+                ? AppCard(
+                    onTap: () => ref.read(selectedTabIndexProvider.notifier).state = 3,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.shield_outlined, color: AppColors.accentBlue),
+                        SizedBox(width: 12),
+                        Expanded(child: Text('Set up your monthly budget to start tracking goals')),
+                        Icon(Icons.chevron_right, color: AppColors.textMuted),
+                      ],
+                    ),
+                  )
+                : _BudgetCard(budget: budget, ordersAsync: ordersAsync),
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
+          _InsightsCard(current: monthSummaryAsync, previous: prevMonthSummaryAsync),
         ],
       ),
     );
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.previousValue,
-    required this.positiveIsGood,
-    this.overBudget = false,
-    required this.loading,
-  });
+class _ServiceDonut extends StatelessWidget {
+  const _ServiceDonut({required this.byPlatform, required this.total});
 
-  final String label;
-  final double value;
-  final double previousValue;
-  final bool positiveIsGood;
-  final bool overBudget;
-  final bool loading;
+  final Map<DeliveryPlatform, double> byPlatform;
+  final double total;
 
   @override
   Widget build(BuildContext context) {
-    final good = positiveIsGood ? value >= 0 : !overBudget;
-    final valueColor = good ? AppColors.green : AppColors.red;
-
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-          const SizedBox(height: 8),
-          if (loading)
-            const SizedBox(
-              height: 28,
-              child: LinearProgressIndicator(),
-            )
-          else
-            Text(
-              formatCurrencyWhole(value),
-              style: TextStyle(
-                color: valueColor,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
+    if (total <= 0) return const SizedBox.shrink();
+    return PieChart(
+      PieChartData(
+        sectionsSpace: 2,
+        centerSpaceRadius: 20,
+        sections: [
+          for (final entry in byPlatform.entries)
+            PieChartSectionData(
+              value: entry.value,
+              color: entry.key.color,
+              showTitle: false,
+              radius: 18,
             ),
-          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderRow extends StatelessWidget {
+  const _OrderRow({required this.order});
+
+  final TransactionModel order;
+
+  @override
+  Widget build(BuildContext context) {
+    final platform = order.platform;
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: (platform?.color ?? AppColors.textMuted).withValues(alpha: 0.15),
+        child: Icon(platform?.icon ?? Icons.receipt_long, color: platform?.color ?? AppColors.textMuted, size: 20),
+      ),
+      title: Text(platform?.label ?? order.merchantName),
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(formatCurrency(order.amount), style: const TextStyle(fontWeight: FontWeight.bold)),
           Text(
-            '${formatPercentChange(value, previousValue)} vs last month',
+            DateFormat.MMMd().format(order.date),
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],
@@ -184,83 +234,133 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _CalendarSection extends StatelessWidget {
-  const _CalendarSection({
-    required this.focusedMonth,
-    required this.byDay,
-    required this.onMonthChanged,
-    required this.onDayTapped,
-  });
+class _BudgetCard extends StatelessWidget {
+  const _BudgetCard({required this.budget, required this.ordersAsync});
 
-  final DateTime focusedMonth;
-  final Map<int, DailySummary> byDay;
-  final ValueChanged<DateTime> onMonthChanged;
-  final ValueChanged<DateTime> onDayTapped;
+  final Budget budget;
+  final AsyncValue<List<TransactionModel>> ordersAsync;
 
   @override
   Widget build(BuildContext context) {
-    return TableCalendar(
-      firstDay: DateTime.utc(2020, 1, 1),
-      lastDay: DateTime.utc(2035, 12, 31),
-      focusedDay: focusedMonth,
-      currentDay: DateTime.now(),
-      calendarFormat: CalendarFormat.month,
-      startingDayOfWeek: StartingDayOfWeek.sunday,
-      daysOfWeekHeight: 24,
-      rowHeight: 56,
-      sixWeekMonthsEnforced: false,
-      headerStyle: const HeaderStyle(
-        formatButtonVisible: false,
-        titleCentered: true,
-        titleTextStyle: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-        leftChevronIcon: Icon(Icons.chevron_left, color: AppColors.textSecondary),
-        rightChevronIcon: Icon(Icons.chevron_right, color: AppColors.textSecondary),
-      ),
-      daysOfWeekStyle: const DaysOfWeekStyle(
-        weekdayStyle: TextStyle(color: AppColors.textMuted, fontSize: 12),
-        weekendStyle: TextStyle(color: AppColors.textMuted, fontSize: 12),
-      ),
-      calendarStyle: const CalendarStyle(outsideDaysVisible: false),
-      onPageChanged: onMonthChanged,
-      onDaySelected: (selected, _) => onDayTapped(selected),
-      calendarBuilders: CalendarBuilders(
-        defaultBuilder: (context, day, _) => _DayCell(day: day, summary: byDay[day.day]),
-        todayBuilder: (context, day, _) =>
-            _DayCell(day: day, summary: byDay[day.day], isToday: true),
+    final spent = ordersAsync.value?.fold(0.0, (sum, o) => sum + o.amount) ?? 0;
+    final amount = budget.monthlyBudgetAmount;
+    final ratio = amount <= 0 ? 0.0 : (spent / amount).clamp(0, 1).toDouble();
+    final color = AppColors.budgetColor(amount <= 0 ? 0 : spent / amount);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Monthly budget', style: TextStyle(color: AppColors.textSecondary)),
+              Text('Spent', style: const TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(formatCurrency(amount), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(formatCurrency(spent), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: AppColors.surfaceElevated,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${(ratio * 100).toStringAsFixed(0)}%',
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _DayCell extends StatelessWidget {
-  const _DayCell({required this.day, this.summary, this.isToday = false});
+class _InsightsCard extends StatelessWidget {
+  const _InsightsCard({required this.current, required this.previous});
 
-  final DateTime day;
-  final DailySummary? summary;
-  final bool isToday;
+  final AsyncValue<MonthSummary> current;
+  final AsyncValue<MonthSummary> previous;
 
   @override
   Widget build(BuildContext context) {
-    final net = summary?.net;
-    Color amountColor = AppColors.textMuted;
-    String amountText = '';
-    if (net != null) {
-      amountColor = net >= 0 ? AppColors.green : AppColors.red;
-      amountText = '${net >= 0 ? '+' : '-'}\$${net.abs().toStringAsFixed(0)}';
-    }
+    final currentData = current.value;
+    final previousData = previous.value;
+    if (currentData == null) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: isToday ? Border.all(color: AppColors.accentBlue) : null,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    final currentSpent = currentData.byDay.values.fold(0.0, (sum, d) => sum + d.amountSpent);
+    final previousSpent = previousData?.byDay.values.fold(0.0, (sum, d) => sum + d.amountSpent) ?? 0;
+    final diff = previousSpent - currentSpent;
+    final better = diff >= 0;
+
+    final points = currentData.byDay.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+
+    return AppCard(
+      child: Row(
         children: [
-          Text('${day.day}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)),
-          const SizedBox(height: 2),
-          Text(amountText, style: TextStyle(color: amountColor, fontSize: 10)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Insights', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                RichText(
+                  text: TextSpan(
+                    style: DefaultTextStyle.of(context).style,
+                    children: [
+                      const TextSpan(text: 'You spent '),
+                      TextSpan(
+                        text: '${formatCurrency(diff.abs())} ${better ? 'less' : 'more'}',
+                        style: TextStyle(
+                          color: better ? AppColors.green : AppColors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const TextSpan(text: ' than last month'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (points.length >= 2)
+            SizedBox(
+              height: 40,
+              width: 80,
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  titlesData: const FlTitlesData(show: false),
+                  lineTouchData: const LineTouchData(enabled: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: [
+                        for (var i = 0; i < points.length; i++)
+                          FlSpot(i.toDouble(), points[i].value.amountSpent),
+                      ],
+                      isCurved: true,
+                      color: AppColors.green,
+                      barWidth: 2,
+                      dotData: const FlDotData(show: false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

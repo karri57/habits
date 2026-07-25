@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const background = Color(0xFF0A0A0C);
-  static const surface = Color(0xFF17171B);
-  static const surfaceElevated = Color(0xFF1F1F24);
-  static const border = Color(0xFF2A2A31);
+  static const background = Color(0xFF0A1712);
+  static const surface = Color(0xFF12251C);
+  static const surfaceElevated = Color(0xFF183024);
+  static const border = Color(0xFF244436);
 
-  static const textPrimary = Color(0xFFF5F5F7);
-  static const textSecondary = Color(0xFF9A9AA5);
-  static const textMuted = Color(0xFF6B6B75);
+  static const textPrimary = Color(0xFFF5F7F5);
+  static const textSecondary = Color(0xFFA3B3AA);
+  static const textMuted = Color(0xFF6E8377);
 
   static const accentBlue = Color(0xFF4A8FFF);
   static const green = Color(0xFF34D399);

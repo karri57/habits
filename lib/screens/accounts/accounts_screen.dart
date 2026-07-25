@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/account.dart';
 import '../../providers/accounts_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_card.dart';
@@ -97,6 +98,23 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   for (final account in accounts) _AccountRow(account: account),
                   const SizedBox(height: 12),
                   const LinkAccountButton(),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Settings',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  AppCard(
+                    padding: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: const Icon(Icons.logout, color: AppColors.red),
+                      title: const Text('Sign out'),
+                      onTap: () => ref.read(authServiceProvider).signOut(),
+                    ),
+                  ),
                 ],
               );
             },

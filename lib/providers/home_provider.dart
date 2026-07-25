@@ -39,6 +39,12 @@ final monthSummaryProvider = FutureProvider.family<MonthSummary, DateTime>((ref,
   return MonthSummary(totalSpent: spent, totalSaved: saved, byDay: byDay);
 });
 
-final dayTransactionsProvider = FutureProvider.family<List<TransactionModel>, DateTime>(
-  (ref, day) => ref.watch(supabaseServiceProvider).fetchTransactionsForDay(day),
-);
+/// This calendar month's food-delivery orders, newest first — backs the
+/// Overview screen's total/order-count, top-service breakdown, and recent
+/// orders list.
+final currentMonthOrdersProvider = FutureProvider<List<TransactionModel>>((ref) {
+  final now = DateTime.now();
+  return ref
+      .watch(supabaseServiceProvider)
+      .fetchTransactions(foodDeliveryOnly: true, since: DateTime(now.year, now.month, 1));
+});
